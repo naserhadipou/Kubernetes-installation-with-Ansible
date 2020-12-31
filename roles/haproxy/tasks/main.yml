@@ -1,0 +1,45 @@
+- name: --- Set hostname ---
+  hostname:
+   name: haproxt
+  tags: hostname
+
+- name: --- set IP in hosts ---
+  lineinfile:
+   path: /etc/hosts
+   insertafter: '127.0.0.1 *'
+   line: '192.168.1.22  haproxy'
+   backup: yes
+  tags: set_hosts
+
+- name: --- yum update ---
+  yum:    
+   name: '*'
+   state: latest
+  register: result
+  tags: [yum_update]
+#- debug: msg= {{ result.stdout }}
+
+- name: --- install haproxy ----
+  yum:
+   name: haproxy
+  tags: [install_haproxy]
+
+- name: --- confige haproxy ---
+  template:
+   src: haproxy.cfg
+   dest: /etc/haproxy/haproxy.cfg
+   owner: root
+   group: root
+   backup: yes
+   force: yes
+  tags: [confige_haproxy]
+
+- name: --- Restart service haproxy ---
+  service:
+   name: haproxy
+   state: restarted
+  tags: restart_haproxy
+
+- name: --- add port ---
+  shell:  firewall-cmd --zone=public --permanent --add-port=8080/tcp && systemctl restart firewalld
+  tags: add_port

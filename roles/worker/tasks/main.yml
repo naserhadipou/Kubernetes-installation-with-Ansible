@@ -1,0 +1,133 @@
+- name: --- Set shekan on node ---
+  lineinfile:  
+   path: /etc/resolv.conf
+   insertafter: 'search *'
+   line: 'nameserver 178.22.122.100' 
+   backup: yes
+  tags: set_dns
+
+- name: --- Install repository ---
+  template:
+   src: kubernetes.repo
+   dest: /etc/yum.repos.d/
+   owner: root
+   group: root
+   mode: '0644'
+  tags: intall_repo_kubernetes
+ 
+- name: --- Yum update ---
+  yum: 
+   name: '*'
+   state: latest
+  tags: yum_update
+
+- name: --- Install kubelet, kubeadm and kubectl ---
+  yum:
+   name: "{{ packages }}"
+  vars:
+   packages:
+   - kubelet
+   - kubeadm
+   - kubectl
+   - ipvsadm
+   - net-tools
+   - telnet
+  tags: install_packages
+
+- name: --- Install version lock --- 
+  yum: 
+   name: yum-plugin-versionlock
+  tags: install_version_lock
+
+
+- name: --- add packeages to the versionlock ---
+  lineinfile:  
+   path: /etc/yum/pluginconf.d/versionlock.list
+   insertafter: ''
+   line: "{{ lines }}"
+   backup: yes
+  vars:
+    lines:
+    - kubelet
+    - kubeadm
+    - kubectl
+  tags: versionlock
+
+- name: --- Install yum utils ---
+  yum:
+   name: yum-utils
+   state: latest
+  tags: install_yum_utils
+
+- name: --- Add Docker repo ---
+  get_url:
+    url: https://download.docker.com/linux/centos/docker-ce.repo
+    dest: /etc/yum.repos.d/docer-ce.repo
+  tags: docker_repo
+
+- name: --- Disable Docker Edge repo ---
+  command: yum-config-manager --disable docker-ce-edge
+  tags: disable_docker_edge
+
+- name: --- Install Docker ---
+  package:
+    name: docker-ce
+    state: latest
+  tags: install_docker
+
+- name: --- Start Docker service ---
+  service:
+    name: docker
+    state: started
+    enabled: yes
+  tags: start_docker
+
+- name: --- Set Docker deamon ---
+  template:
+   src: deamon.json
+   dest: /etc/docker/
+   owner: root
+   group: root
+   mode: '0644'
+  tags: set_docker_deamon
+
+- name: --- Restart Docker service ---
+  service:
+    name: docker
+    state: restarted
+  tags: restart_docker
+
+- name: --- Disable swap ---
+  shell: swapoff --all && sed -i '/^.*swap./ d ' /etc/fstab
+  tags: disable_swap
+
+- name: --- Disable swap ---
+  shell: sysctl vm.swappiness=0
+  tags: disable_swap
+
+- name: --- Linux tuning ---
+  template:
+   src: 99-kubernetes.conf
+   dest: /etc/sysctl.d/
+   owner: root
+   group: root
+   mode: '0777'
+  tags: linux_tuning
+
+- name: --- linux tuning ---
+  shell: sysctl --system 
+  tags: linux_tuning
+
+- name: --- kubeadm node join  ---
+  template:
+   src: kubeadm-node-join.yaml
+   dest: /root/
+   owner: root
+   group: root
+   mode: '0777'
+  tags: kubeadm_node_join_yaml
+
+- name: --- cluster initiative ---
+  shell: kubeadm join --config /root/kubeadm-node-join.yaml
+  tags: kubeadm_init
+

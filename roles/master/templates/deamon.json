@@ -1,0 +1,8 @@
+{
+  "exec-opts": ["native.cgroupdriver=systemd"],
+  "log-dirver": "json-file",
+  "log-opts": {
+    "max-size": "100m"
+  },
+  "storege-driver": "overlay2"
+}
